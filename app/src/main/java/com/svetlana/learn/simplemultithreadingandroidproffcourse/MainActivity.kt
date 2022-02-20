@@ -3,11 +3,14 @@ package com.svetlana.learn.simplemultithreadingandroidproffcourse
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import com.svetlana.learn.simplemultithreadingandroidproffcourse.databinding.ActivityMainBinding
-import kotlin.concurrent.thread
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -19,49 +22,85 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
         binding.buttonLoad.setOnClickListener {
-            loadData()
+            lifecycleScope.launch {
+                loadData()
+            }
+//            loadWithoutCoroutine()
         }
     }
 
-    private fun loadData() {
+    private suspend fun loadData() {
+        Log.d("MainActivity", "Load started: $this")
         binding.progress.isVisible = true
         binding.buttonLoad.isEnabled = false
-        loadCity {
+        val city = loadCity()
 
-            binding.tvLocation.text = it
+        binding.tvLocation.text = city
+        val temp = loadTemperature(city)
 
-            loadTemperature(it) { int ->
+        binding.tvTemperature.text = temp.toString()
+        binding.progress.isVisible = false
+        binding.buttonLoad.isEnabled = true
+        Log.d("MainActivity", "Load finished: $this")
+    }
 
-                binding.tvTemperature.text = int.toString()
+    private fun loadWithoutCoroutine(step: Int = 0, obj: Any? = null) {
+        when (step) {
+            0 -> {
+                Log.d("MainActivity", "Load started: $this")
+                binding.progress.isVisible = true
+                binding.buttonLoad.isEnabled = false
+                loadCityWithoutCoroutine {
+                    loadWithoutCoroutine(1, it)
+                }
+            }
+            1 -> {
+                val city = obj as String
+                binding.tvLocation.text = city
+                loadTemperatureWithoutCoroutine(city) {
+                    loadWithoutCoroutine(2, it)
+                }
+            }
+            2 -> {
+                val temp = obj as Int
+                binding.tvTemperature.text = temp.toString()
                 binding.progress.isVisible = false
                 binding.buttonLoad.isEnabled = true
+                Log.d("MainActivity", "Load finished: $this")
             }
         }
     }
 
-    private fun loadCity(callback: (String) -> Unit) {
-        thread {
-            Thread.sleep(5000)
-            Handler(Looper.getMainLooper()).post {
-                callback.invoke("Moscow")
-            }
-        }
+    private fun loadCityWithoutCoroutine(callback: (String) -> Unit) {
+        Handler(Looper.getMainLooper()).postDelayed({
+            callback.invoke("Moscow")
+        }, 5000)
     }
 
-    private fun loadTemperature(city: String, callback: (Int) -> Unit) {
-        thread {
-            Handler(Looper.getMainLooper()).post {
-                Toast.makeText(
-                    this,
-                    getString(R.string.loading_temperature_toast, city),
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+    private suspend fun loadCity(): String {
+        delay(5000)
+        return "Moscow"
+    }
 
-            Thread.sleep(5000)
-            Handler(Looper.getMainLooper()).post {
-                callback.invoke(17)
-            }
-        }
+    private fun loadTemperatureWithoutCoroutine(city: String, callback: (Int) -> Unit) {
+        Toast.makeText(
+            this,
+            getString(R.string.loading_temperature_toast, city),
+            Toast.LENGTH_SHORT
+        ).show()
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            callback.invoke(17)
+        }, 5000)
+    }
+
+    private suspend fun loadTemperature(city: String): Int {
+        Toast.makeText(
+            this,
+            getString(R.string.loading_temperature_toast, city),
+            Toast.LENGTH_SHORT
+        ).show()
+        delay(5000)
+        return 17
     }
 }
