@@ -8,7 +8,10 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.snackbar.Snackbar
 import com.svetlana.learn.simplemultithreadingandroidproffcourse.databinding.ActivityMainBinding
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -25,19 +28,27 @@ class MainActivity : AppCompatActivity() {
             binding.progress.isVisible = true
             binding.buttonLoad.isEnabled = false
 
-            val jobCity = lifecycleScope.launch {
+            val deferredCity: Deferred<String> = lifecycleScope.async {
                 val city = loadCity()
                 binding.tvLocation.text = city
+                city
             }
-            val jobTemp = lifecycleScope.launch {
+            val deferredTemp: Deferred<Int> = lifecycleScope.async {
                 val temp = loadTemperature()
                 binding.tvTemperature.text = temp.toString()
+                temp
             }
             lifecycleScope.launch {
-                jobCity.join()
-                jobTemp.join()
+                val city = deferredCity.await()
+                val temp = deferredTemp.await()
+
                 binding.progress.isVisible = false
                 binding.buttonLoad.isEnabled = true
+
+                Snackbar.make(binding.root, "city: $city, temp: $temp", Snackbar.LENGTH_LONG)
+                    .show()
+
+                Log.d("deferred", "city: $city, temp: $temp")
             }
 //            loadWithoutCoroutine()
         }
